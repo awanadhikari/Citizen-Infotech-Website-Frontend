@@ -34,88 +34,74 @@ const emptyForm: DetailForm = {
   external_url: "",
 };
 
-// class UploadAdapter {
-//   loader: any;
-
-//   constructor(loader: any) {
-//     this.loader = loader;
-//   }
-
-//   async upload() {
-//     try {
-//       const file = await this.loader.file;
-//       const formData = new FormData();
-//       formData.append("file", file);
-
-//       const response = await projectsApi.uploadImage(formData);
-
-//       return {
-//         default: mediaUrl(response.url),
-//       };
-//     } catch (error) {
-//       console.error("Image upload error:", error);
-//       throw new Error("Image upload failed");
-//     }
-//   }
-
-//   abort() { }
-// }
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://192.168.254.39:8080";
 
 class UploadAdapter {
   loader: any;
+  xhr: XMLHttpRequest | null = null;
 
   constructor(loader: any) {
     this.loader = loader;
   }
 
-  async upload() {
-    try {
-      const file = await this.loader.file;
+  upload() {
+    return this.loader.file.then(
+      (file: File) =>
+        new Promise((resolve, reject) => {
+          const data = new FormData();
+          data.append("file", file);
 
-      const USE_FETCH_BYPASS = true;
+          this.xhr = new XMLHttpRequest();
 
-      if (USE_FETCH_BYPASS) {
-        const formData = new FormData();
-        formData.append("file", file);
+          this.xhr.addEventListener("error", () =>
+            reject("Network error during upload.")
+          );
+          this.xhr.addEventListener("abort", () =>
+            reject("Upload aborted.")
+          );
+          this.xhr.addEventListener("load", () => {
+            const response = this.xhr!.response;
 
-        const token = localStorage.getItem("auth_token");
+            if (!response || this.xhr!.status >= 400) {
+              return reject(
+                response?.detail ||
+                response?.message ||
+                `Upload failed: ${this.xhr!.status}`
+              );
+            }
 
-        const response = await fetch(
-          "http://localhost:8080/api/projects/upload-image",
-          {
-            method: "POST",
-            body: formData,
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
+            resolve({
+              default: mediaUrl(response.url),
+            });
+          });
+
+          if (this.xhr.upload) {
+            this.xhr.upload.addEventListener("progress", (evt) => {
+              if (evt.lengthComputable) {
+                this.loader.uploadTotal = evt.total;
+                this.loader.uploaded = evt.loaded;
+              }
+            });
           }
-        );
 
-        const data = await response.json();
+          this.xhr.open("POST", `${API_BASE_URL}/api/projects/upload-image`, true);
+          this.xhr.responseType = "json";
 
-        return {
-          default: mediaUrl(data.url),
-        };
-      }
+          const token = localStorage.getItem("auth_token");
+          if (token) {
+            this.xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+          }
 
-      // -------------------------------
-      // ORIGINAL AXIOS FLOW
-      // -------------------------------
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await projectsApi.uploadImage(formData);
-
-      return {
-        default: mediaUrl(response.url),
-      };
-    } catch (error) {
-      console.error("Image upload error:", error);
-      throw new Error("Image upload failed");
-    }
+          this.xhr.send(data);
+        })
+    );
   }
 
-  abort() { }
+  abort() {
+    if (this.xhr) {
+      this.xhr.abort();
+    }
+  }
 }
 
 function CustomUploadAdapterPlugin(editor: any) {
@@ -140,9 +126,29 @@ const editorConfig = {
     "blockQuote",
     "insertTable",
     "imageUpload",
+    "|",
+    "imageStyle:block",
+    "imageStyle:side",
+    "|",
     "undo",
     "redo",
   ],
+  image: {
+    styles: {
+      options: [
+        "block",
+        "side",
+      ],
+    },
+    toolbar: [
+      "imageStyle:block",
+      "imageStyle:side",
+      "|",
+      "imageTextAlternative",
+      "|",
+      "linkImage",
+    ],
+  },
 };
 
 const toForm = (project: Project): DetailForm => ({
@@ -229,8 +235,8 @@ const AdminProjectDetails = () => {
               type="button"
               onClick={() => setSelectedId(project.id)}
               className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected?.id === project.id
-                ? "border-primary/40 bg-primary/10"
-                : "border-border bg-background/40 hover:border-primary/30 hover:bg-secondary"
+                  ? "border-primary/40 bg-primary/10"
+                  : "border-border bg-background/40 hover:border-primary/30 hover:bg-secondary"
                 }`}
             >
               <div className="flex h-12 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary">
@@ -342,8 +348,8 @@ const AdminProjectDetails = () => {
                       type="button"
                       onClick={() => setForm({ ...form, detail_design: design.id })}
                       className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${form.detail_design === design.id
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-secondary"
                         }`}
                     >
                       <span className="font-medium">{design.label}</span>
@@ -361,8 +367,8 @@ const AdminProjectDetails = () => {
                       type="button"
                       onClick={() => setForm({ ...form, detail_palette: palette.id })}
                       className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${form.detail_palette === palette.id
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
+                          ? "border-primary/50 bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-secondary"
                         }`}
                     >
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: palette.accent }} />

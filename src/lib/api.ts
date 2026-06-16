@@ -458,7 +458,12 @@ export const settingsApi = {
 // ---- Contact Messages ----
 export const messagesApi = {
   getAll: () => request<ContactMessage[]>({ url: "/messages/" }),
-  submit: (data: { name: string; email: string; message: string }) =>
+  submit: (data: {
+    name: string;
+    email: string;
+    message: string;
+    recaptcha_token: string;
+  }) =>
     request<ContactMessage>({
       url: "/messages/",
       method: "POST",

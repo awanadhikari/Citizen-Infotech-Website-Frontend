@@ -1246,6 +1246,7 @@
 }
 
 @media (max-width: 767px) {
+
   html[data-design="pastel"],
   html[data-design="pastel"] body {
     position: relative;
@@ -1314,7 +1315,7 @@
     min-width: 0;
   }
 
-  [data-design="pastel"] .inline-flex > span {
+  [data-design="pastel"] .inline-flex>span {
     min-width: 0;
     overflow-wrap: anywhere;
   }
@@ -1663,11 +1664,68 @@
 .admin-rich-editor .ck.ck-editor {
   max-width: 100% !important;
 }
+
 .admin-rich-editor .ck.ck-editor__main {
   max-width: 100% !important;
   overflow: hidden;
 }
+
 .admin-rich-editor .ck.ck-toolbar {
   flex-wrap: wrap !important;
   max-width: 100% !important;
+
+}
+
+/*  CKEditor Image Styles — Editor + Preview */
+/* Block image (full width, centered) */
+.ck-content .image.image-style-block,
+.prose .image.image-style-block,
+.detail-content .image.image-style-block {
+  display: table;
+  margin: 1em auto;
+  clear: both;
+  text-align: center;
+  max-width: 100%;
+}
+
+/* Side image (floats left, text wraps on right) */
+.ck-content .image.image-style-side,
+.prose .image.image-style-side,
+.detail-content .image.image-style-side {
+  float: left;
+  margin-right: 1.5em;
+  margin-bottom: 1em;
+  max-width: 50%;
+  text-align: center;
+}
+
+/* Image inside figure */
+.ck-content .image img,
+.prose .image img,
+.detail-content .image img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Caption styling */
+.ck-content .image>figcaption,
+.prose .image>figcaption,
+.detail-content .image>figcaption {
+  display: table-caption;
+  caption-side: bottom;
+  word-break: break-word;
+  text-align: center;
+  color: #666;
+  font-size: 0.75em;
+  padding-top: 0.5em;
+}
+
+/* Clear floats after side images */
+.ck-content p::after,
+.prose p::after,
+.detail-content p::after {
+  content: "";
+  display: table;
+  clear: both;
 }
