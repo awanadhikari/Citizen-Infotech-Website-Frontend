@@ -401,6 +401,9 @@ export const projectsApi = {
       url: "/projects/upload-image",
       method: "POST",
       data,
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     }),
   reorder: (items: { id: number; order_index: number }[]) =>
     request<{ message: string }>({

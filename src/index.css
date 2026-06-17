@@ -1660,72 +1660,244 @@
   opacity: 0.5;
 }
 
-/* Fix CKEditor and admin rich editor stretching on mobile viewports */
-.admin-rich-editor .ck.ck-editor {
-  max-width: 100% !important;
+/* ------------------------------
+   ADMIN RICH EDITOR (TIPTAP)
+--------------------------------*/
+
+.admin-rich-editor {
+  width: 100%;
 }
 
-.admin-rich-editor .ck.ck-editor__main {
-  max-width: 100% !important;
-  overflow: hidden;
+/* Main editor container */
+.admin-rich-editor .ProseMirror {
+  outline: none;
+  min-height: 300px;
+  width: 100%;
+  font-size: 14px;
+  line-height: 1.6;
+  color: inherit;
 }
 
-.admin-rich-editor .ck.ck-toolbar {
-  flex-wrap: wrap !important;
-  max-width: 100% !important;
-
-}
-
-/*  CKEditor Image Styles — Editor + Preview */
-/* Block image (full width, centered) */
-.ck-content .image.image-style-block,
-.prose .image.image-style-block,
-.detail-content .image.image-style-block {
-  display: table;
-  margin: 1em auto;
-  clear: both;
-  text-align: center;
-  max-width: 100%;
-}
-
-/* Side image (floats left, text wraps on right) */
-.ck-content .image.image-style-side,
-.prose .image.image-style-side,
-.detail-content .image.image-style-side {
+/* Placeholder */
+.admin-rich-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
   float: left;
-  margin-right: 1.5em;
-  margin-bottom: 1em;
-  max-width: 50%;
-  text-align: center;
+  pointer-events: none;
+  height: 0;
 }
 
-/* Image inside figure */
-.ck-content .image img,
-.prose .image img,
-.detail-content .image img {
-  display: block;
+/* Paragraph spacing */
+.admin-rich-editor .ProseMirror p {
+  margin: 0.5rem 0;
+}
+
+.admin-rich-editor .ProseMirror ul,
+.admin-rich-editor .ProseMirror ol {
+  padding-left: 1.5rem;
+}
+
+
+.admin-rich-editor .ProseMirror blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1rem;
+  margin: 1rem 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.admin-rich-editor .ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+}
+
+.admin-rich-editor .ProseMirror img {
   max-width: 100%;
   height: auto;
+  display: block;
+  margin: 1rem auto;
+  border-radius: 6px;
 }
 
-/* Caption styling */
-.ck-content .image>figcaption,
-.prose .image>figcaption,
-.detail-content .image>figcaption {
-  display: table-caption;
-  caption-side: bottom;
-  word-break: break-word;
+/* optional alignment styles (manual classes if you add later) */
+.admin-rich-editor .image {
+  position: relative;
+}
+
+.admin-rich-editor .image-style-block {
+  display: block;
   text-align: center;
-  color: #666;
-  font-size: 0.75em;
-  padding-top: 0.5em;
+  margin: 1rem auto;
 }
 
-/* Clear floats after side images */
-.ck-content p::after,
-.prose p::after,
-.detail-content p::after {
+.admin-rich-editor .image-style-side {
+  float: left;
+  max-width: 50%;
+  margin-right: 1rem;
+}
+
+/* clear float */
+.admin-rich-editor p::after {
   content: "";
-  display: table;
+  display: block;
   clear: both;
+}
+
+.admin-rich-editor .ProseMirror table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+  table-layout: fixed;
+}
+
+.admin-rich-editor .ProseMirror td,
+.admin-rich-editor .ProseMirror th {
+  border: 1px solid hsl(var(--border));
+  padding: 6px 8px;
+  position: relative;
+  vertical-align: top;
+}
+
+.admin-rich-editor .ProseMirror th {
+  background: hsl(var(--secondary));
+  font-weight: 600;
+}
+
+/* selected cell highlight */
+.admin-rich-editor .ProseMirror .selectedCell:after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: hsl(var(--primary) / 0.2);
+  pointer-events: none;
+}
+
+/* resize handle */
+.admin-rich-editor .ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: hsl(var(--primary));
+}
+
+
+.admin-rich-editor .ProseMirror pre {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+
+
+.admin-rich-editor button {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.admin-rich-editor button:hover {
+  background: hsl(var(--secondary));
+}
+
+/* TipTap Editor Styles */
+.ProseMirror {
+  min-height: 300px;
+  padding: 1rem;
+  outline: none;
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+.ProseMirror p {
+  margin-bottom: 1em;
+}
+.ProseMirror h2 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+.ProseMirror blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1rem;
+  font-style: italic;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 1rem;
+}
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  min-width: 1em;
+  border: 1px solid hsl(var(--border));
+  padding: 8px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+.ProseMirror table th {
+  font-weight: bold;
+  text-align: left;
+  background-color: hsl(var(--muted));
+}
+.ProseMirror .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: -2px;
+  width: 4px;
+  background-color: hsl(var(--primary));
+  pointer-events: none;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.ProseMirror-selectednode {
+  outline: 3px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.ProseMirror img,
+.project-rich-content img {
+  display: inline-block;
+  vertical-align: top;
+  margin: 0.25rem;
 }
