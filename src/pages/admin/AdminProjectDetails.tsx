@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
-import { CKEditor } from "@ckeditor/ckeditor5-react";
-import ClassicEditor from "@ckeditor/ckeditor5-build-classic";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Image as ImageIcon, Loader2, Palette, Save } from "lucide-react";
+import {
+  ExternalLink,
+  Loader2,
+  Save,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
-import { DESIGNS, PALETTES } from "@/contexts/ThemeContext";
 import { mediaUrl, projectsApi, type Project } from "@/lib/api";
 import { projectHref } from "@/lib/projectLinks";
 
+/* ---------------- TIPTAP ---------------- */
+import { useEditor, EditorContent } from "@tiptap/react";
+import { StarterKit } from "@tiptap/starter-kit";
+import { Link as LinkExtension } from "@tiptap/extension-link";
+import ImageResize from "tiptap-extension-resize-image";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableCell } from "@tiptap/extension-table-cell";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { Placeholder } from "@tiptap/extension-placeholder";
+
+/* ---------------- TYPES ---------------- */
 type DetailForm = {
   slug: string;
   detail_content: string;
@@ -34,119 +47,6 @@ const emptyForm: DetailForm = {
   external_url: "",
 };
 
-// class UploadAdapter {
-//   loader: any;
-
-//   constructor(loader: any) {
-//     this.loader = loader;
-//   }
-
-//   async upload() {
-//     try {
-//       const file = await this.loader.file;
-//       const formData = new FormData();
-//       formData.append("file", file);
-
-//       const response = await projectsApi.uploadImage(formData);
-
-//       return {
-//         default: mediaUrl(response.url),
-//       };
-//     } catch (error) {
-//       console.error("Image upload error:", error);
-//       throw new Error("Image upload failed");
-//     }
-//   }
-
-//   abort() { }
-// }
-
-class UploadAdapter {
-  loader: any;
-
-  constructor(loader: any) {
-    this.loader = loader;
-  }
-
-  async upload() {
-    try {
-      const file = await this.loader.file;
-
-      const USE_FETCH_BYPASS = true;
-
-      if (USE_FETCH_BYPASS) {
-        const formData = new FormData();
-        formData.append("file", file);
-
-        const token = localStorage.getItem("auth_token");
-        const url= import.meta.env.VITE_API_URL|| "http://localhost:8080"
-        console.log(url)
-
-        const response = await fetch(
-          `${url}/projects/upload-image`,
-          {
-            method: "POST",
-            body: formData,
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        return {
-          default: mediaUrl(data.url),
-        };
-      }
-
-      // -------------------------------
-      // ORIGINAL AXIOS FLOW
-      // -------------------------------
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await projectsApi.uploadImage(formData);
-
-      return {
-        default: mediaUrl(response.url),
-      };
-    } catch (error) {
-      console.error("Image upload error:", error);
-      throw new Error("Image upload failed");
-    }
-  }
-
-  abort() { }
-}
-
-function CustomUploadAdapterPlugin(editor: any) {
-  editor.plugins.get("FileRepository").createUploadAdapter = (
-    loader: any
-  ) => {
-    return new UploadAdapter(loader);
-  };
-}
-
-const editorConfig = {
-  extraPlugins: [CustomUploadAdapterPlugin],
-  toolbar: [
-    "heading",
-    "|",
-    "bold",
-    "italic",
-    "link",
-    "bulletedList",
-    "numberedList",
-    "|",
-    "blockQuote",
-    "insertTable",
-    "imageUpload",
-    "undo",
-    "redo",
-  ],
-};
-
 const toForm = (project: Project): DetailForm => ({
   slug: project.slug || "",
   detail_content: project.detail_content || "",
@@ -161,16 +61,18 @@ const toForm = (project: Project): DetailForm => ({
 
 const AdminProjectDetails = () => {
   const qc = useQueryClient();
+
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [form, setForm] = useState<DetailForm>(emptyForm);
 
+  /* ---------------- PROJECTS ---------------- */
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["projects"],
     queryFn: projectsApi.getAll,
   });
 
   const selected = useMemo(
-    () => projects.find((project) => project.id === selectedId) || projects[0] || null,
+    () => projects.find((p) => p.id === selectedId) || projects[0] || null,
     [projects, selectedId]
   );
 
@@ -180,33 +82,112 @@ const AdminProjectDetails = () => {
     }
   }, [projects, selectedId]);
 
-  useEffect(() => {
-    if (selected) {
-      setForm(toForm(selected));
-    }
-  }, [selected?.id]);
+  /* ---------------- TIPTAP EDITOR (FIXED) ---------------- */
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      LinkExtension.configure({ openOnClick: false }),
+      ImageResize.configure({ inline: true }),
+      Table.configure({ resizable: true }),
+      TableRow,
+      TableHeader,
+      TableCell,
+      Placeholder.configure({
+        placeholder: "Write case study content...",
+      }),
+    ],
 
+    content: "",
+
+    onCreate: ({ editor }) => {
+      // initial load safety
+      if (form.detail_content) {
+        editor.commands.setContent(form.detail_content);
+      }
+    },
+
+    onUpdate: ({ editor }) => {
+      setForm((prev) => ({
+        ...prev,
+        detail_content: editor.getHTML(),
+      }));
+    },
+  });
+
+  /* ---------------- SYNC WHEN PROJECT CHANGES (FIXED) ---------------- */
+  useEffect(() => {
+    if (!selected) return;
+
+    const data = toForm(selected);
+    setForm(data);
+
+    if (editor) {
+      editor.commands.setContent(data.detail_content || "", { emitUpdate: false });
+    }
+  }, [selected?.id, editor]);
+
+  /* ---------------- IMAGE UPLOAD ---------------- */
+  const addImage = async () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const data = await projectsApi.uploadImage(formData);
+        
+        if (data.url) {
+          editor
+            ?.chain()
+            .focus()
+            .insertContent(`<img src="${mediaUrl(data.url)}" />`)
+            .run();
+        } else {
+          toast.error("Failed to upload image");
+        }
+      } catch (err) {
+        toast.error("Image upload error");
+      }
+    };
+
+    input.click();
+  };
+
+  /* ---------------- SAVE ---------------- */
   const updateMut = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<Project> }) => projectsApi.update(id, data),
+    mutationFn: ({ id, data }: { id: number; data: Partial<Project> }) =>
+      projectsApi.update(id, data),
+
     onSuccess: (project) => {
       qc.setQueryData<Project[]>(["projects"], (old = []) =>
-        old.map((item) => (item.id === project.id ? project : item))
+        old.map((p) => (p.id === project.id ? project : p))
       );
+
       qc.setQueryData(["project", project.slug || project.id], project);
-      toast.success("Project details saved");
+
+      toast.success("Project saved");
     },
-    onError: (e) => toast.error(`Save failed: ${e instanceof Error ? e.message : "error"}`),
+
+    onError: (e) =>
+      toast.error(
+        `Save failed: ${e instanceof Error ? e.message : "error"
+        }`
+      ),
   });
 
   const handleSave = () => {
     if (!selected) return;
+
     updateMut.mutate({
       id: selected.id,
       data: {
-        slug: form.slug,
-        detail_content: form.detail_content,
-        detail_design: form.detail_design,
-        detail_palette: form.detail_palette,
+        ...form,
         client: form.client || null,
         status: form.status || null,
         tech_stack: form.tech_stack || null,
@@ -216,180 +197,156 @@ const AdminProjectDetails = () => {
     });
   };
 
+  /* ---------------- UI ---------------- */
   return (
     <div className="mx-auto grid w-full max-w-7xl gap-6 xl:grid-cols-[320px_1fr]">
+
+      {/* LEFT */}
       <aside className="rounded-xl border border-border bg-card p-4">
         <div className="mb-4 flex items-center justify-between">
-          <h1 className="font-heading text-xl font-bold text-foreground">Project Details</h1>
-          {isLoading && <Loader2 size={16} className="animate-spin text-muted-foreground" />}
+          <h1 className="font-bold text-xl">Projects</h1>
+          {isLoading && <Loader2 className="animate-spin" />}
         </div>
 
-        <div className="space-y-2 max-h-60 xl:max-h-none overflow-y-auto pr-1">
-          {projects.map((project) => (
+        <div className="space-y-2">
+          {projects.map((p) => (
             <button
-              key={project.id}
-              type="button"
-              onClick={() => setSelectedId(project.id)}
-              className={`flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors ${selected?.id === project.id
-                ? "border-primary/40 bg-primary/10"
-                : "border-border bg-background/40 hover:border-primary/30 hover:bg-secondary"
+              key={p.id}
+              onClick={() => setSelectedId(p.id)}
+              className={`w-full text-left p-3 rounded-lg border ${selected?.id === p.id
+                  ? "border-primary bg-primary/10"
+                  : "border-border"
                 }`}
             >
-              <div className="flex h-12 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary">
-                {project.image_url ? (
-                  <img src={mediaUrl(project.image_url)} alt="" className="h-full w-full object-cover" />
-                ) : (
-                  <ImageIcon size={16} className="text-muted-foreground" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">{project.title}</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {project.category} / {project.year}
-                </p>
-              </div>
+              <p className="font-medium">{p.title}</p>
+              <p className="text-xs text-muted-foreground">
+                {p.category} / {p.year}
+              </p>
             </button>
           ))}
         </div>
       </aside>
 
-      <section className="rounded-xl border border-border bg-card p-5 md:p-6 min-w-0">
+      {/* RIGHT */}
+      <section className="rounded-xl border border-border bg-card p-5">
+
         {!selected ? (
-          <div className="text-sm text-muted-foreground">No projects yet.</div>
+          <p>No project selected</p>
         ) : (
-          <div className="space-y-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-widest text-primary">Editing</p>
-                <h2 className="mt-2 font-heading text-2xl font-bold text-foreground">{selected.title}</h2>
-              </div>
-              <div className="flex flex-wrap gap-2">
+          <div className="space-y-5">
+
+            {/* HEADER */}
+            <div className="flex justify-between">
+              <h2 className="text-2xl font-bold">{selected.title}</h2>
+
+              <div className="flex gap-2">
                 <Link
-                  to={projectHref({ ...selected, slug: form.slug || selected.slug })}
+                  to={projectHref({
+                    ...selected,
+                    slug: form.slug || selected.slug,
+                  })}
                   target="_blank"
-                  className="inline-flex items-center gap-2 rounded-lg border border-border px-4 py-2 text-sm text-foreground hover:border-primary/40 hover:bg-secondary"
+                  className="px-3 py-2 border rounded"
                 >
-                  <ExternalLink size={15} />
-                  Preview
+                  <ExternalLink size={14} /> Preview
                 </Link>
+
                 <button
-                  type="button"
                   onClick={handleSave}
                   disabled={updateMut.isPending}
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                  className="px-3 py-2 bg-primary text-white rounded"
                 >
-                  {updateMut.isPending ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                  Save
+                  {updateMut.isPending ? (
+                    <Loader2 className="animate-spin" />
+                  ) : (
+                    <Save size={14} />
+                  )}
                 </button>
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-foreground">Slug</span>
-                <input
-                  value={form.slug}
-                  onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-                />
-              </label>
+            {/* SLUG */}
+            <input
+              value={form.slug}
+              onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              className="w-full p-2 border border-border rounded-lg bg-background text-foreground"
+              placeholder="slug"
+            />
 
-              <label className="block">
-                <span className="mb-2 block text-sm font-medium text-foreground">External URL</span>
-                <input
-                  value={form.external_url}
-                  onChange={(e) => setForm({ ...form, external_url: e.target.value })}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-                />
-              </label>
-            </div>
+            <div className="admin-rich-editor border rounded-lg p-3 space-y-3">
+              {/* TOOLBAR */}
+              <div className="flex gap-2 flex-wrap border-b border-border pb-3">
+                <button
+                  type="button"
+                  onClick={() => editor?.chain().focus().toggleBold().run()}
+                  className={editor?.isActive("bold") ? "bg-secondary" : ""}
+                >
+                  Bold
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor?.chain().focus().toggleItalic().run()}
+                  className={editor?.isActive("italic") ? "bg-secondary" : ""}
+                >
+                  Italic
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                  className={editor?.isActive("bulletList") ? "bg-secondary" : ""}
+                >
+                  List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor?.chain().focus().toggleBlockquote().run()}
+                  className={editor?.isActive("blockquote") ? "bg-secondary" : ""}
+                >
+                  Quote
+                </button>
+                <button
+                  type="button"
+                  onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
+                  className={editor?.isActive("heading", { level: 2 }) ? "bg-secondary" : ""}
+                >
+                  H2
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    editor
+                      ?.chain()
+                      .focus()
+                      .setLink({ href: prompt("URL") || "" })
+                      .run()
+                  }
+                  className={editor?.isActive("link") ? "bg-secondary" : ""}
+                >
+                  Link
+                </button>
+                <button type="button" onClick={addImage}>
+                  Image
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    editor?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+                  }
+                >
+                  Table
+                </button>
+              </div>
 
-            <div className="grid gap-4 md:grid-cols-3">
-              {[
-                ["Client", "client"],
-                ["Status", "status"],
-                ["Tech Stack", "tech_stack"],
-              ].map(([label, key]) => (
-                <label key={key} className="block">
-                  <span className="mb-2 block text-sm font-medium text-foreground">{label}</span>
-                  <input
-                    value={form[key as keyof DetailForm]}
-                    onChange={(e) => setForm({ ...form, [key]: e.target.value })}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
-                  />
-                </label>
-              ))}
-            </div>
-
-            <label className="block">
-              <span className="mb-2 block text-sm font-medium text-foreground">Impact Summary</span>
-              <textarea
-                value={form.impact_summary}
-                onChange={(e) => setForm({ ...form, impact_summary: e.target.value })}
-                rows={3}
-                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none"
+              {/* EDITOR */}
+              <EditorContent 
+                editor={editor} 
+                className="min-h-[300px] w-full bg-background text-foreground cursor-text" 
               />
-            </label>
-
-            <div className="grid gap-5 lg:grid-cols-2">
-              <div>
-                <div className="mb-2 flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Palette size={15} />
-                  Design
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {DESIGNS.map((design) => (
-                    <button
-                      key={design.id}
-                      type="button"
-                      onClick={() => setForm({ ...form, detail_design: design.id })}
-                      className={`rounded-lg border px-3 py-2 text-left text-sm transition-colors ${form.detail_design === design.id
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
-                        }`}
-                    >
-                      <span className="font-medium">{design.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <div className="mb-2 text-sm font-medium text-foreground">Palette</div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {PALETTES.map((palette) => (
-                    <button
-                      key={palette.id}
-                      type="button"
-                      onClick={() => setForm({ ...form, detail_palette: palette.id })}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors ${form.detail_palette === palette.id
-                        ? "border-primary/50 bg-primary/10 text-primary"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary"
-                        }`}
-                    >
-                      <span className="h-3 w-3 rounded-full" style={{ backgroundColor: palette.accent }} />
-                      <span className="font-medium">{palette.label}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-foreground">Case Study Content</label>
-              <div className="admin-rich-editor overflow-hidden rounded-lg border border-border bg-background">
-                <CKEditor
-                  editor={ClassicEditor as any}
-                  data={form.detail_content}
-                  config={editorConfig}
-                  onChange={(_, editor) => {
-                    setForm((current) => ({ ...current, detail_content: editor.getData() }));
-                  }}
-                />
-              </div>
-            </div>
           </div>
         )}
+
       </section>
     </div>
   );

@@ -70,15 +70,7 @@ const BackLink = () => (
   </Link>
 );
 
-const ProjectAction = ({ project, className, style }: { project: Project; className: string; style?: CSSProperties }) => {
-  if (project.external_url) {
-    return (
-      <a href={project.external_url} target="_blank" rel="noreferrer" className={className} style={style}>
-        Open project <ArrowUpRight size={16} />
-      </a>
-    );
-  }
-
+const ProjectAction = ({ className, style }: { project: Project; className: string; style?: CSSProperties }) => {
   return (
     <Link to="/contact" className={className} style={style}>
       Request a Demo <ArrowUpRight size={16} />
@@ -253,7 +245,7 @@ const PastelDetail = ({ project }: { project: Project }) => (
       </div>
     </div>
   </article>
-);
+); 
 
 const TerminalDetail = ({ project }: { project: Project }) => {
   const handleCopy = () => {

@@ -32,9 +32,10 @@ import AdminServices from "./pages/admin/AdminServices";
 import AdminInside from "./pages/admin/AdminInside";
 import NotFound from "./pages/NotFound";
 import ScrollToTop from "./components/ScrolltoTop";
+import AdminProjectDetails from "./pages/admin/AdminProjectDetails";
 
 const queryClient = new QueryClient();
-const AdminProjectDetails = lazy(() => import("./pages/admin/AdminProjectDetails"));
+// const AdminProjectDetails = lazy(() => import("./pages/admin/AdminProjectDetails"));
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
