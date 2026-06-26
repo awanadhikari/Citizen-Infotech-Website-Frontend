@@ -273,9 +273,9 @@ const AdminProjectDetails = () => {
               placeholder="slug"
             />
 
-            <div className="admin-rich-editor border rounded-lg p-3 space-y-3">
-              {/* TOOLBAR */}
-              <div className="flex gap-2 flex-wrap border-b border-border pb-3">
+            <div className="admin-rich-editor border border-border rounded-lg overflow-hidden">
+              {/* TOOLBAR — sticky so it stays put while you scroll long content */}
+              <div className="sticky top-0 z-10 flex gap-2 flex-wrap border-b border-border bg-card p-3">
                 <button
                   type="button"
                   onClick={() => editor?.chain().focus().toggleBold().run()}
@@ -337,11 +337,13 @@ const AdminProjectDetails = () => {
                 </button>
               </div>
 
-              {/* EDITOR */}
-              <EditorContent 
-                editor={editor} 
-                className="min-h-[300px] w-full bg-background text-foreground cursor-text" 
-              />
+              {/* EDITOR — fixed height, scrolls internally instead of growing the whole page */}
+              <div className="h-[60vh] overflow-y-auto p-3 bg-background">
+                <EditorContent
+                  editor={editor}
+                  className="min-h-full w-full text-foreground cursor-text"
+                />
+              </div>
             </div>
 
           </div>

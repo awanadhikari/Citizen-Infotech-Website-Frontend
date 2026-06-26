@@ -47,10 +47,33 @@ const splitTags = (value?: string | null) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const normalizeRichContentImages = (html: string) => {
+  if (!html || typeof window === "undefined") return html;
+
+  const doc = new DOMParser().parseFromString(html, "text/html");
+
+  doc.querySelectorAll("img[wrapperstyle], img[containerstyle]").forEach((img) => {
+    const wrapperStyle = img.getAttribute("wrapperstyle") || "";
+    const containerStyle = img.getAttribute("containerstyle") || "";
+    const existing = img.getAttribute("style") || "";
+    const hasExplicitWidth = /width\s*:\s*\d/.test(containerStyle);
+    const fallbackWidth = hasExplicitWidth ? "" : "width: 100%; max-width: 480px;";
+
+    img.setAttribute(
+      "style",
+      [wrapperStyle, containerStyle, fallbackWidth, existing].filter(Boolean).join("; ")
+    );
+  });
+
+  return doc.body.innerHTML;
+};
+
 const RichContent = ({ project }: { project: Project }) => {
   const html = project.detail_content?.trim();
+  const normalizedHtml = useMemo(() => (html ? normalizeRichContentImages(html) : ""), [html]);
+
   if (html) {
-    return <div className="project-rich-content" dangerouslySetInnerHTML={{ __html: html }} />;
+    return <div className="project-rich-content" dangerouslySetInnerHTML={{ __html: normalizedHtml }} />;
   }
 
   return (
